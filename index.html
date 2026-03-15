@@ -3,8 +3,8 @@
 <html>
 <head>
 <meta charset="UTF-8">
-<meta name="viewport" content="width=device-width,initial-scale=1">
-<title>TetrisUltimate-PRO GOD</title>
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<title>TetrisUltimate-PRO</title>
 
 <style>
 
@@ -18,7 +18,6 @@ text-align:center;
 
 h1{
 color:#00eaff;
-margin:10px;
 }
 
 canvas{
@@ -36,15 +35,15 @@ flex-wrap:wrap;
 
 .panel{
 background:#1c2233;
-padding:12px;
+padding:10px;
 border-radius:10px;
 }
 
 button{
-padding:10px 15px;
-margin:5px;
+padding:10px 14px;
+margin:4px;
 border:none;
-border-radius:8px;
+border-radius:6px;
 background:#00eaff;
 font-weight:bold;
 }
@@ -88,8 +87,6 @@ gap:8px;
 <h3>Hold</h3>
 <canvas id="hold" width="120" height="120"></canvas>
 
-<div>Combo <span id="combo">0</span></div>
-
 </div>
 
 </div>
@@ -126,16 +123,13 @@ let canHold=true
 let score=0
 let level=1
 let lines=0
-let combo=0
 
-let dropInterval=1000
+let dropInterval=900
 let dropCounter=0
 let lastTime=0
 
 let running=false
 let ai=false
-
-let clearEffect=[]
 
 let highScore=localStorage.getItem("tetrisHigh")||0
 document.getElementById("high").textContent=highScore
@@ -191,8 +185,8 @@ drawNext()
 
 }
 
-function startGame(){ ai=false; init() }
-function startAI(){ ai=true; init() }
+function startGame(){ai=false;init()}
+function startAI(){ai=true;init()}
 
 function init(){
 
@@ -204,7 +198,6 @@ board=Array.from({length:ROWS},()=>Array(COLS).fill(0))
 score=0
 level=1
 lines=0
-combo=0
 
 spawn()
 
@@ -310,23 +303,16 @@ cleared++
 
 if(cleared){
 
-combo++
 lines+=cleared
-
-score+=cleared*100*level + combo*50
+score+=cleared*120
 
 level=Math.floor(lines/10)+1
-dropInterval=1000-level*70
+dropInterval=900-level*60
 
-clearEffect.push({time:20})
-
-}else{
-combo=0
 }
 
 document.getElementById("score").textContent=score
 document.getElementById("level").textContent=level
-document.getElementById("combo").textContent=combo
 
 if(score>highScore){
 highScore=score
@@ -359,16 +345,6 @@ if(v) drawCell(x,y,v)
 
 drawGhost()
 drawPiece()
-
-clearEffect.forEach(e=>{
-ctx.fillStyle="white"
-ctx.globalAlpha=e.time/20
-ctx.fillRect(0,0,canvas.width,canvas.height)
-ctx.globalAlpha=1
-e.time--
-})
-
-clearEffect=clearEffect.filter(e=>e.time>0)
 
 }
 
@@ -451,8 +427,8 @@ requestAnimationFrame(update)
 
 function aiMove(){
 
-if(Math.random()<0.3) move(Math.random()<0.5?-1:1)
-if(Math.random()<0.2) rotate()
+if(Math.random()<0.25) move(Math.random()<0.5?-1:1)
+if(Math.random()<0.15) rotate()
 if(Math.random()<0.05) hardDrop()
 
 }
