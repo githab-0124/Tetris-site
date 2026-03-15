@@ -4,31 +4,27 @@
 <head>
 <meta charset="UTF-8">
 <meta name="viewport" content="width=device-width,initial-scale=1">
-<title>TetrisUltimate-PRO</title>
+<title>TetrisUltimate-PRO GOD</title>
 
 <style>
 
 body{
 margin:0;
-background:#0b0f1a;
+background:#05070f;
 color:white;
 font-family:Arial;
 text-align:center;
 }
 
 h1{
-margin:10px;
-font-size:32px;
 color:#00eaff;
+margin:10px;
 }
 
-button{
-padding:10px 16px;
-border:none;
-border-radius:8px;
-background:#00eaff;
-font-weight:bold;
-cursor:pointer;
+canvas{
+background:#111;
+border-radius:10px;
+box-shadow:0 0 15px cyan;
 }
 
 .wrapper{
@@ -38,17 +34,19 @@ gap:20px;
 flex-wrap:wrap;
 }
 
-canvas{
-background:#111;
-border-radius:10px;
-box-shadow:0 0 15px cyan;
-}
-
 .panel{
 background:#1c2233;
-padding:10px;
+padding:12px;
 border-radius:10px;
-min-width:140px;
+}
+
+button{
+padding:10px 15px;
+margin:5px;
+border:none;
+border-radius:8px;
+background:#00eaff;
+font-weight:bold;
 }
 
 .controls{
@@ -57,7 +55,7 @@ bottom:10px;
 left:50%;
 transform:translateX(-50%);
 display:flex;
-gap:10px;
+gap:8px;
 }
 
 </style>
@@ -137,6 +135,8 @@ let lastTime=0
 let running=false
 let ai=false
 
+let clearEffect=[]
+
 let highScore=localStorage.getItem("tetrisHigh")||0
 document.getElementById("high").textContent=highScore
 
@@ -191,15 +191,8 @@ drawNext()
 
 }
 
-function startGame(){
-ai=false
-init()
-}
-
-function startAI(){
-ai=true
-init()
-}
+function startGame(){ ai=false; init() }
+function startAI(){ ai=true; init() }
 
 function init(){
 
@@ -319,9 +312,13 @@ if(cleared){
 
 combo++
 lines+=cleared
+
 score+=cleared*100*level + combo*50
+
 level=Math.floor(lines/10)+1
 dropInterval=1000-level*70
+
+clearEffect.push({time:20})
 
 }else{
 combo=0
@@ -339,13 +336,15 @@ document.getElementById("high").textContent=score
 
 }
 
-function drawCell(x,y,color,alpha=1){
+function drawCell(x,y,color,a=1){
 
-ctx.globalAlpha=alpha
+ctx.globalAlpha=a
 ctx.fillStyle=color
 ctx.fillRect(x*SIZE,y*SIZE,SIZE,SIZE)
+
 ctx.strokeStyle="#000"
 ctx.strokeRect(x*SIZE,y*SIZE,SIZE,SIZE)
+
 ctx.globalAlpha=1
 
 }
@@ -360,6 +359,16 @@ if(v) drawCell(x,y,v)
 
 drawGhost()
 drawPiece()
+
+clearEffect.forEach(e=>{
+ctx.fillStyle="white"
+ctx.globalAlpha=e.time/20
+ctx.fillRect(0,0,canvas.width,canvas.height)
+ctx.globalAlpha=1
+e.time--
+})
+
+clearEffect=clearEffect.filter(e=>e.time>0)
 
 }
 
@@ -378,7 +387,7 @@ let ghostY=current.y
 while(!collide(0,ghostY-current.y+1)) ghostY++
 
 current.shape.forEach((row,y)=>row.forEach((v,x)=>{
-if(v) drawCell(current.x+x,ghostY+y,colors[current.type],0.3)
+if(v) drawCell(current.x+x,ghostY+y,colors[current.type],0.25)
 }))
 
 }
