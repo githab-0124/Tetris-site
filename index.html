@@ -4,10 +4,9 @@
 <head>
 <meta charset="UTF-8">
 <meta name="viewport" content="width=device-width,initial-scale=1">
-<title>Ultimate Tetris</title>
+<title>God Tetris</title>
 
 <style>
-
 body{
 margin:0;
 background:linear-gradient(135deg,#0f2027,#203a43,#2c5364);
@@ -16,27 +15,14 @@ font-family:Arial;
 text-align:center;
 }
 
-h1{
-margin:10px;
-}
-
-#menu{
-margin-top:100px;
-}
+h1{margin:10px}
 
 button{
-padding:12px 20px;
+padding:10px 16px;
 border:none;
 border-radius:10px;
 background:#00eaff;
 font-weight:bold;
-font-size:16px;
-}
-
-canvas{
-background:#111;
-border-radius:10px;
-box-shadow:0 0 20px cyan;
 }
 
 .wrapper{
@@ -46,11 +32,16 @@ gap:20px;
 flex-wrap:wrap;
 }
 
+canvas{
+background:#111;
+border-radius:10px;
+box-shadow:0 0 15px cyan;
+}
+
 .panel{
 background:rgba(255,255,255,0.1);
 padding:10px;
 border-radius:10px;
-min-width:140px;
 }
 
 .controls{
@@ -62,22 +53,19 @@ display:flex;
 gap:10px;
 }
 
-.controls button{
-font-size:18px;
-}
-
 </style>
 </head>
 
 <body>
 
-<h1>ULTIMATE TETRIS</h1>
+<h1>GOD TETRIS</h1>
 
 <div id="menu">
 <button onclick="startGame()">PLAY</button>
+<button onclick="toggleAI()">AI DEMO</button>
 </div>
 
-<div id="gameUI" style="display:none">
+<div id="ui" style="display:none">
 
 <div class="wrapper">
 
@@ -87,7 +75,7 @@ font-size:18px;
 
 <div>Score <span id="score">0</span></div>
 <div>Level <span id="level">1</span></div>
-<div>HighScore <span id="high">0</span></div>
+<div>High <span id="high">0</span></div>
 
 <h3>Next</h3>
 <canvas id="next" width="120" height="220"></canvas>
@@ -95,8 +83,7 @@ font-size:18px;
 <h3>Hold</h3>
 <canvas id="hold" width="120" height="120"></canvas>
 
-<h3>Combo</h3>
-<div id="combo">0</div>
+<div>Combo <span id="combo">0</span></div>
 
 </div>
 
@@ -105,14 +92,12 @@ font-size:18px;
 </div>
 
 <div class="controls">
-
 <button onclick="move(-1)">◀</button>
 <button onclick="move(1)">▶</button>
 <button onclick="rotate()">⟳</button>
 <button onclick="softDrop()">▼</button>
 <button onclick="hardDrop()">DROP</button>
 <button onclick="holdPiece()">HOLD</button>
-
 </div>
 
 <script>
@@ -124,22 +109,21 @@ const SIZE=30
 const canvas=document.getElementById("game")
 const ctx=canvas.getContext("2d")
 
-const nextCanvas=document.getElementById("next")
-const nextCtx=nextCanvas.getContext("2d")
-
-const holdCanvas=document.getElementById("hold")
-const holdCtx=holdCanvas.getContext("2d")
+const nextCtx=document.getElementById("next").getContext("2d")
+const holdCtx=document.getElementById("hold").getContext("2d")
 
 let board
 let current
+let queue=[]
 let hold=null
 let canHold=true
-let queue=[]
 
 let score=0
 let level=1
 let lines=0
 let combo=0
+
+let ai=false
 
 let dropInterval=1000
 let dropCounter=0
@@ -160,13 +144,13 @@ L:"#ff9900"
 }
 
 const pieces={
-I:[[[0,0,0,0],[1,1,1,1],[0,0,0,0],[0,0,0,0]]],
-O:[[[1,1],[1,1]]],
-T:[[[0,1,0],[1,1,1],[0,0,0]]],
-S:[[[0,1,1],[1,1,0],[0,0,0]]],
-Z:[[[1,1,0],[0,1,1],[0,0,0]]],
-J:[[[1,0,0],[1,1,1],[0,0,0]]],
-L:[[[0,0,1],[1,1,1],[0,0,0]]]
+I:[[1,1,1,1]],
+O:[[1,1],[1,1]],
+T:[[0,1,0],[1,1,1]],
+S:[[0,1,1],[1,1,0]],
+Z:[[1,1,0],[0,1,1]],
+J:[[1,0,0],[1,1,1]],
+L:[[0,0,1],[1,1,1]]
 }
 
 function newBag(){
@@ -174,11 +158,8 @@ function newBag(){
 let bag=["I","O","T","S","Z","J","L"]
 
 for(let i=bag.length-1;i>0;i--){
-
 let j=Math.floor(Math.random()*(i+1))
-
 ;[bag[i],bag[j]]=[bag[j],bag[i]]
-
 }
 
 queue.push(...bag)
@@ -192,7 +173,8 @@ if(queue.length<5) newBag()
 current={
 type:queue.shift(),
 x:3,
-y:0
+y:0,
+shape:JSON.parse(JSON.stringify(pieces[queue[0]]))
 }
 
 canHold=true
@@ -203,7 +185,7 @@ drawNext()
 function startGame(){
 
 document.getElementById("menu").style.display="none"
-document.getElementById("gameUI").style.display="block"
+document.getElementById("ui").style.display="block"
 
 board=Array.from({length:ROWS},()=>Array(COLS).fill(0))
 
@@ -219,12 +201,9 @@ requestAnimationFrame(update)
 
 }
 
-function collide(dx=0,dy=0){
-
-let shape=pieces[current.type][0]
+function collide(dx=0,dy=0,shape=current.shape){
 
 for(let y=0;y<shape.length;y++){
-
 for(let x=0;x<shape[y].length;x++){
 
 if(shape[y][x]){
@@ -237,7 +216,6 @@ if(nx<0||nx>=COLS||ny>=ROWS||board[ny]?.[nx]) return true
 }
 
 }
-
 }
 
 return false
@@ -245,25 +223,26 @@ return false
 }
 
 function move(d){
-
 if(!collide(d,0)) current.x+=d
-
 }
 
-function rotate(){}
+function rotate(){
+
+let s=current.shape
+let r=s[0].map((_,i)=>s.map(row=>row[i]).reverse())
+
+if(!collide(0,0,r)) current.shape=r
+
+}
 
 function softDrop(){
 
 if(!collide(0,1)){
-
 current.y++
-
 }else{
-
 merge()
 clearLines()
 spawn()
-
 }
 
 }
@@ -271,10 +250,8 @@ spawn()
 function hardDrop(){
 
 while(!collide(0,1)){
-
 current.y++
 score+=2
-
 }
 
 softDrop()
@@ -286,16 +263,13 @@ function holdPiece(){
 if(!canHold) return
 
 if(!hold){
-
 hold=current.type
 spawn()
-
 }else{
-
 [current.type,hold]=[hold,current.type]
+current.shape=JSON.parse(JSON.stringify(pieces[current.type]))
 current.x=3
 current.y=0
-
 }
 
 canHold=false
@@ -305,12 +279,8 @@ drawHold()
 
 function merge(){
 
-let shape=pieces[current.type][0]
-
-shape.forEach((row,y)=>row.forEach((v,x)=>{
-
+current.shape.forEach((row,y)=>row.forEach((v,x)=>{
 if(v) board[current.y+y][current.x+x]=colors[current.type]
-
 }))
 
 }
@@ -319,27 +289,23 @@ function clearLines(){
 
 let cleared=0
 
-board=board.filter(row=>!row.every(c=>c))
+board=board.filter(r=>!r.every(c=>c))
 
 while(board.length<ROWS){
-
 board.unshift(Array(COLS).fill(0))
 cleared++
-
 }
 
 if(cleared){
 
 combo++
 lines+=cleared
-score+=cleared*100*level+combo*50
+score+=cleared*100*level + combo*50
 level=Math.floor(lines/10)+1
 dropInterval=1000-level*70
 
 }else{
-
 combo=0
-
 }
 
 document.getElementById("score").textContent=score
@@ -347,11 +313,9 @@ document.getElementById("level").textContent=level
 document.getElementById("combo").textContent=combo
 
 if(score>highScore){
-
 highScore=score
 localStorage.setItem("tetrisHigh",score)
 document.getElementById("high").textContent=score
-
 }
 
 }
@@ -372,23 +336,30 @@ function draw(){
 ctx.clearRect(0,0,canvas.width,canvas.height)
 
 board.forEach((row,y)=>row.forEach((v,x)=>{
-
 if(v) drawCell(x,y,v)
-
 }))
 
+drawGhost()
 drawPiece()
 
 }
 
 function drawPiece(){
 
-let shape=pieces[current.type][0]
-
-shape.forEach((row,y)=>row.forEach((v,x)=>{
-
+current.shape.forEach((row,y)=>row.forEach((v,x)=>{
 if(v) drawCell(current.x+x,current.y+y,colors[current.type])
+}))
 
+}
+
+function drawGhost(){
+
+let ghostY=current.y
+
+while(!collide(0,ghostY-current.y+1)) ghostY++
+
+current.shape.forEach((row,y)=>row.forEach((v,x)=>{
+if(v) drawCell(current.x+x,ghostY+y,colors[current.type],0.3)
 }))
 
 }
@@ -400,18 +371,13 @@ nextCtx.clearRect(0,0,120,220)
 for(let i=0;i<5;i++){
 
 let type=queue[i]
-
 if(!type) continue
 
-pieces[type][0].forEach((row,y)=>row.forEach((v,x)=>{
-
+pieces[type].forEach((row,y)=>row.forEach((v,x)=>{
 if(v){
-
 nextCtx.fillStyle=colors[type]
 nextCtx.fillRect(x*20+40,y*20+30+i*40,20,20)
-
 }
-
 }))
 
 }
@@ -424,15 +390,11 @@ holdCtx.clearRect(0,0,120,120)
 
 if(!hold) return
 
-pieces[hold][0].forEach((row,y)=>row.forEach((v,x)=>{
-
+pieces[hold].forEach((row,y)=>row.forEach((v,x)=>{
 if(v){
-
 holdCtx.fillStyle=colors[hold]
 holdCtx.fillRect(x*20+40,y*20+40,20,20)
-
 }
-
 }))
 
 }
@@ -447,15 +409,30 @@ lastTime=time
 dropCounter+=delta
 
 if(dropCounter>dropInterval){
-
 softDrop()
 dropCounter=0
-
 }
+
+if(ai) aiMove()
 
 draw()
 
 requestAnimationFrame(update)
+
+}
+
+function aiMove(){
+
+if(Math.random()<0.3) move(Math.random()<0.5?-1:1)
+if(Math.random()<0.2) rotate()
+if(Math.random()<0.05) hardDrop()
+
+}
+
+function toggleAI(){
+
+ai=!ai
+startGame()
 
 }
 
@@ -464,6 +441,7 @@ document.addEventListener("keydown",e=>{
 if(e.key==="ArrowLeft") move(-1)
 if(e.key==="ArrowRight") move(1)
 if(e.key==="ArrowDown") softDrop()
+if(e.key==="ArrowUp") rotate()
 if(e.key===" ") hardDrop()
 if(e.key==="c") holdPiece()
 
