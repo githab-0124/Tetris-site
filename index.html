@@ -1,58 +1,68 @@
+```html
 <!DOCTYPE html>
-<html lang="en">
+<html>
 <head>
 <meta charset="UTF-8">
-<meta name="viewport" content="width=device-width, initial-scale=1.0">
-<title>Modern Tetris Pro</title>
+<meta name="viewport" content="width=device-width,initial-scale=1">
+<title>Ultra Tetris</title>
 
 <style>
 
 body{
 margin:0;
-background:linear-gradient(135deg,#141e30,#243b55);
+background:#0b0f1a;
 color:white;
-font-family:sans-serif;
+font-family:Arial;
 text-align:center;
+}
+
+h1{
+margin-top:10px;
+}
+
+#gameScreen{
+display:none;
+}
+
+canvas{
+background:#111;
+border:3px solid #0ff;
+border-radius:10px;
 }
 
 .wrapper{
 display:flex;
 justify-content:center;
 gap:20px;
-margin-top:10px;
 flex-wrap:wrap;
 }
 
-canvas{
-background:#111;
-border-radius:10px;
-box-shadow:0 0 20px cyan;
-}
-
 .panel{
-background:rgba(255,255,255,0.1);
-padding:15px;
+background:#1c2233;
+padding:10px;
 border-radius:10px;
-min-width:150px;
+min-width:140px;
 }
 
 button{
-padding:10px;
-margin:5px;
+padding:10px 15px;
 border:none;
 border-radius:8px;
-background:#00c6ff;
-color:white;
+background:#0ff;
 font-weight:bold;
 }
 
 .controls{
 position:fixed;
-bottom:20px;
+bottom:15px;
 left:50%;
 transform:translateX(-50%);
 display:flex;
-gap:10px;
+gap:8px;
+}
+
+.controls button{
+font-size:18px;
 }
 
 </style>
@@ -60,9 +70,13 @@ gap:10px;
 
 <body>
 
-<h1>MODERN TETRIS PRO</h1>
+<h1>ULTRA TETRIS</h1>
 
-<button onclick="startGame()">START</button>
+<div id="menu">
+<button onclick="startGame()">PLAY</button>
+</div>
+
+<div id="gameScreen">
 
 <div class="wrapper">
 
@@ -70,55 +84,67 @@ gap:10px;
 
 <div class="panel">
 
-<div>Score: <span id="score">0</span></div>
-<div>Level: <span id="level">1</span></div>
+<div>Score <span id="score">0</span></div>
+<div>Level <span id="level">1</span></div>
 
 <h3>Next</h3>
-<canvas id="next" width="120" height="120"></canvas>
+<canvas id="next" width="120" height="200"></canvas>
 
 <h3>Hold</h3>
 <canvas id="hold" width="120" height="120"></canvas>
+
+<h3>Combo</h3>
+<div id="combo">0</div>
+
+</div>
 
 </div>
 
 </div>
 
 <div class="controls">
-<button onclick="move(-1)">←</button>
-<button onclick="move(1)">→</button>
+<button onclick="move(-1)">◀</button>
+<button onclick="move(1)">▶</button>
 <button onclick="rotate()">⟳</button>
+<button onclick="softDrop()">▼</button>
 <button onclick="hardDrop()">DROP</button>
 <button onclick="holdPiece()">HOLD</button>
 </div>
 
 <script>
 
-const COLS=10;
-const ROWS=20;
-const SIZE=30;
+const COLS=10
+const ROWS=20
+const SIZE=30
 
-const canvas=document.getElementById("game");
-const ctx=canvas.getContext("2d");
+const canvas=document.getElementById("game")
+const ctx=canvas.getContext("2d")
 
-const nextCtx=document.getElementById("next").getContext("2d");
-const holdCtx=document.getElementById("hold").getContext("2d");
+const nextCanvas=document.getElementById("next")
+const nextCtx=nextCanvas.getContext("2d")
 
-let board;
-let current;
-let nextQueue=[];
-let hold=null;
-let canHold=true;
+const holdCanvas=document.getElementById("hold")
+const holdCtx=holdCanvas.getContext("2d")
 
-let score=0;
-let level=1;
-let lines=0;
+let board
+let current
+let hold=null
+let canHold=true
 
-let dropCounter=0;
-let dropInterval=1000;
-let lastTime=0;
-let running=false;
+let bag=[]
+let nextQueue=[]
 
-const COLORS={
+let score=0
+let level=1
+let lines=0
+let combo=0
+
+let dropInterval=1000
+let dropCounter=0
+let lastTime=0
+let running=false
+
+const colors={
 I:"#00ffff",
 O:"#ffff00",
 T:"#cc00ff",
@@ -126,102 +152,91 @@ S:"#00ff00",
 Z:"#ff0000",
 J:"#0066ff",
 L:"#ff9900"
-};
+}
 
-const PIECES={
+const pieces={
 I:[
 [[0,0,0,0],[1,1,1,1],[0,0,0,0],[0,0,0,0]],
 [[0,0,1,0],[0,0,1,0],[0,0,1,0],[0,0,1,0]]
 ],
-
 O:[[[1,1],[1,1]]],
-
 T:[
 [[0,1,0],[1,1,1],[0,0,0]],
-[[0,1,0],[0,1,1],[0,1,0]],
-[[0,0,0],[1,1,1],[0,1,0]],
-[[0,1,0],[1,1,0],[0,1,0]]
+[[0,1,0],[0,1,1],[0,1,0]]
 ],
-
 S:[
 [[0,1,1],[1,1,0],[0,0,0]],
 [[0,1,0],[0,1,1],[0,0,1]]
 ],
-
 Z:[
 [[1,1,0],[0,1,1],[0,0,0]],
 [[0,0,1],[0,1,1],[0,1,0]]
 ],
-
 J:[
 [[1,0,0],[1,1,1],[0,0,0]],
 [[0,1,1],[0,1,0],[0,1,0]]
 ],
-
 L:[
 [[0,0,1],[1,1,1],[0,0,0]],
 [[0,1,0],[0,1,0],[0,1,1]]
 ]
+}
 
-};
+function startGame(){
 
-function newBag(){
+document.getElementById("menu").style.display="none"
+document.getElementById("gameScreen").style.display="block"
 
-let bag=["I","O","T","S","Z","J","L"];
+board=Array.from({length:ROWS},()=>Array(COLS).fill(0))
 
-for(let i=bag.length-1;i>0;i--){
+score=0
+level=1
+lines=0
+combo=0
 
-let j=Math.floor(Math.random()*(i+1));
+spawn()
 
-[bag[i],bag[j]]=[bag[j],bag[i]];
+running=true
+requestAnimationFrame(update)
 
 }
 
-nextQueue.push(...bag);
+function newBag(){
+
+let arr=["I","O","T","S","Z","J","L"]
+
+for(let i=arr.length-1;i>0;i--){
+
+let j=Math.floor(Math.random()*(i+1))
+
+[arr[i],arr[j]]=[arr[j],arr[i]]
+
+}
+
+nextQueue.push(...arr)
 
 }
 
 function spawn(){
 
-if(nextQueue.length===0) newBag();
+if(nextQueue.length<3) newBag()
 
 current={
 type:nextQueue.shift(),
 x:3,
 y:0,
 rotation:0
-};
-
-canHold=true;
-
-drawNext();
-
 }
 
-function startGame(){
+canHold=true
 
-board=Array.from({length:ROWS},()=>Array(COLS).fill(0));
-
-nextQueue=[];
-hold=null;
-
-score=0;
-level=1;
-lines=0;
-
-newBag();
-
-spawn();
-
-running=true;
-
-requestAnimationFrame(update);
+drawNext()
 
 }
 
 function collide(dx=0,dy=0,rot=current.rotation){
 
-const shape=PIECES[current.type][rot];
+let shape=pieces[current.type][rot]
 
 for(let y=0;y<shape.length;y++){
 
@@ -229,118 +244,32 @@ for(let x=0;x<shape[y].length;x++){
 
 if(shape[y][x]){
 
-let nx=current.x+x+dx;
-let ny=current.y+y+dy;
+let nx=current.x+x+dx
+let ny=current.y+y+dy
 
-if(nx<0||nx>=COLS||ny>=ROWS||board[ny]?.[nx]) return true;
-
-}
+if(nx<0||nx>=COLS||ny>=ROWS||board[ny]?.[nx]) return true
 
 }
 
 }
 
-return false;
+}
+
+return false
 
 }
 
 function move(d){
 
-if(!collide(d,0)) current.x+=d;
+if(!collide(d,0)) current.x+=d
 
 }
 
 function rotate(){
 
-let next=(current.rotation+1)%PIECES[current.type].length;
+let next=(current.rotation+1)%pieces[current.type].length
 
-if(!collide(0,0,next)) current.rotation=next;
-
-}
-
-function hardDrop(){
-
-while(!collide(0,1)){
-
-current.y++;
-
-score+=2;
-
-}
-
-softDrop();
-
-}
-
-function holdPiece(){
-
-if(!canHold) return;
-
-if(!hold){
-
-hold=current.type;
-
-spawn();
-
-}else{
-
-[current.type,hold]=[hold,current.type];
-
-current.x=3;
-
-current.y=0;
-
-current.rotation=0;
-
-}
-
-canHold=false;
-
-drawHold();
-
-}
-
-function merge(){
-
-const shape=PIECES[current.type][current.rotation];
-
-shape.forEach((row,y)=>row.forEach((v,x)=>{
-
-if(v) board[current.y+y][current.x+x]=COLORS[current.type];
-
-}));
-
-}
-
-function clearLines(){
-
-let cleared=0;
-
-board=board.filter(row=>!row.every(cell=>cell));
-
-while(board.length<ROWS){
-
-board.unshift(Array(COLS).fill(0));
-
-cleared++;
-
-}
-
-if(cleared){
-
-lines+=cleared;
-
-score+=cleared*100*level;
-
-level=Math.floor(lines/10)+1;
-
-dropInterval=1000-(level*70);
-
-document.getElementById("score").textContent=score;
-
-document.getElementById("level").textContent=level;
-
-}
+if(!collide(0,0,next)) current.rotation=next
 
 }
 
@@ -348,163 +277,234 @@ function softDrop(){
 
 if(!collide(0,1)){
 
-current.y++;
+current.y++
 
 }else{
 
-merge();
-
-clearLines();
-
-spawn();
+merge()
+clearLines()
+spawn()
 
 }
+
+}
+
+function hardDrop(){
+
+while(!collide(0,1)){
+
+current.y++
+score+=2
+
+}
+
+softDrop()
+
+}
+
+function holdPiece(){
+
+if(!canHold) return
+
+if(!hold){
+
+hold=current.type
+spawn()
+
+}else{
+
+[current.type,hold]=[hold,current.type]
+
+current.x=3
+current.y=0
+current.rotation=0
+
+}
+
+canHold=false
+
+drawHold()
+
+}
+
+function merge(){
+
+let shape=pieces[current.type][current.rotation]
+
+shape.forEach((row,y)=>row.forEach((v,x)=>{
+
+if(v) board[current.y+y][current.x+x]=colors[current.type]
+
+}))
+
+}
+
+function clearLines(){
+
+let cleared=0
+
+board=board.filter(row=>!row.every(cell=>cell))
+
+while(board.length<ROWS){
+
+board.unshift(Array(COLS).fill(0))
+cleared++
+
+}
+
+if(cleared){
+
+combo++
+
+lines+=cleared
+
+score+=cleared*100*level + combo*50
+
+level=Math.floor(lines/10)+1
+
+dropInterval=1000-level*70
+
+}
+
+document.getElementById("score").textContent=score
+document.getElementById("level").textContent=level
+document.getElementById("combo").textContent=combo
 
 }
 
 function drawCell(x,y,color,alpha=1){
 
-ctx.globalAlpha=alpha;
-
-ctx.fillStyle=color;
-
-ctx.fillRect(x*SIZE,y*SIZE,SIZE,SIZE);
-
-ctx.strokeStyle="#000";
-
-ctx.strokeRect(x*SIZE,y*SIZE,SIZE,SIZE);
-
-ctx.globalAlpha=1;
+ctx.globalAlpha=alpha
+ctx.fillStyle=color
+ctx.fillRect(x*SIZE,y*SIZE,SIZE,SIZE)
+ctx.strokeStyle="#000"
+ctx.strokeRect(x*SIZE,y*SIZE,SIZE,SIZE)
+ctx.globalAlpha=1
 
 }
 
 function draw(){
 
-ctx.clearRect(0,0,canvas.width,canvas.height);
+ctx.clearRect(0,0,canvas.width,canvas.height)
 
 board.forEach((row,y)=>row.forEach((v,x)=>{
 
-if(v) drawCell(x,y,v);
+if(v) drawCell(x,y,v)
 
-}));
+}))
 
-drawGhost();
-
-drawPiece();
+drawGhost()
+drawPiece()
 
 }
 
 function drawPiece(){
 
-const shape=PIECES[current.type][current.rotation];
+let shape=pieces[current.type][current.rotation]
 
 shape.forEach((row,y)=>row.forEach((v,x)=>{
 
-if(v) drawCell(current.x+x,current.y+y,COLORS[current.type]);
+if(v) drawCell(current.x+x,current.y+y,colors[current.type])
 
-}));
+}))
 
 }
 
 function drawGhost(){
 
-let ghostY=current.y;
+let ghostY=current.y
 
-while(!collide(0,ghostY-current.y+1)) ghostY++;
+while(!collide(0,ghostY-current.y+1)) ghostY++
 
-const shape=PIECES[current.type][current.rotation];
+let shape=pieces[current.type][current.rotation]
 
 shape.forEach((row,y)=>row.forEach((v,x)=>{
 
-if(v) drawCell(current.x+x,ghostY+y,COLORS[current.type],0.3);
+if(v) drawCell(current.x+x,ghostY+y,colors[current.type],0.3)
 
-}));
+}))
 
 }
 
 function drawNext(){
 
-nextCtx.clearRect(0,0,120,120);
+nextCtx.clearRect(0,0,120,200)
 
-let type=nextQueue[0];
+for(let i=0;i<3;i++){
 
-if(!type) return;
+let type=nextQueue[i]
 
-PIECES[type][0].forEach((row,y)=>row.forEach((v,x)=>{
+if(!type) continue
+
+pieces[type][0].forEach((row,y)=>row.forEach((v,x)=>{
 
 if(v){
 
-nextCtx.fillStyle=COLORS[type];
-
-nextCtx.fillRect((x+1)*25,(y+1)*25,25,25);
+nextCtx.fillStyle=colors[type]
+nextCtx.fillRect(x*20+30,y*20+30+i*60,20,20)
 
 }
 
-}));
+}))
+
+}
 
 }
 
 function drawHold(){
 
-holdCtx.clearRect(0,0,120,120);
+holdCtx.clearRect(0,0,120,120)
 
-if(!hold) return;
+if(!hold) return
 
-PIECES[hold][0].forEach((row,y)=>row.forEach((v,x)=>{
+pieces[hold][0].forEach((row,y)=>row.forEach((v,x)=>{
 
 if(v){
 
-holdCtx.fillStyle=COLORS[hold];
-
-holdCtx.fillRect((x+1)*25,(y+1)*25,25,25);
+holdCtx.fillStyle=colors[hold]
+holdCtx.fillRect(x*20+40,y*20+40,20,20)
 
 }
 
-}));
+}))
 
 }
 
 function update(time=0){
 
-if(!running) return;
+if(!running) return
 
-let delta=time-lastTime;
+let delta=time-lastTime
+lastTime=time
 
-lastTime=time;
-
-dropCounter+=delta;
+dropCounter+=delta
 
 if(dropCounter>dropInterval){
 
-softDrop();
-
-dropCounter=0;
+softDrop()
+dropCounter=0
 
 }
 
-draw();
+draw()
 
-requestAnimationFrame(update);
+requestAnimationFrame(update)
 
 }
 
 document.addEventListener("keydown",e=>{
 
-if(e.key==="ArrowLeft") move(-1);
+if(e.key==="ArrowLeft") move(-1)
+if(e.key==="ArrowRight") move(1)
+if(e.key==="ArrowDown") softDrop()
+if(e.key==="ArrowUp") rotate()
+if(e.key===" ") hardDrop()
+if(e.key==="c") holdPiece()
 
-if(e.key==="ArrowRight") move(1);
-
-if(e.key==="ArrowDown") softDrop();
-
-if(e.key==="ArrowUp") rotate();
-
-if(e.key===" ") hardDrop();
-
-if(e.key==="c") holdPiece();
-
-});
+})
 
 </script>
 
 </body>
 </html>
+```
