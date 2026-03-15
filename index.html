@@ -1,39 +1,43 @@
 <!DOCTYPE html>
-<html lang="ja">
+<html lang="en">
 <head>
 <meta charset="UTF-8">
 <meta name="viewport" content="width=device-width, initial-scale=1.0">
-<title>Modern Tetris Ultimate - Pro</title>
+<title>Modern Tetris Pro</title>
+
 <style>
+
 body{
 margin:0;
 background:linear-gradient(135deg,#141e30,#243b55);
 color:white;
 font-family:sans-serif;
 text-align:center;
-touch-action:none;
 }
+
 .wrapper{
 display:flex;
 justify-content:center;
 gap:20px;
-flex-wrap:wrap;
 margin-top:10px;
+flex-wrap:wrap;
 }
+
 canvas{
 background:#111;
-border-radius:15px;
+border-radius:10px;
 box-shadow:0 0 20px cyan;
 }
+
 .panel{
-background:rgba(255,255,255,0.08);
+background:rgba(255,255,255,0.1);
 padding:15px;
-border-radius:15px;
-backdrop-filter:blur(10px);
+border-radius:10px;
 min-width:150px;
 }
+
 button{
-padding:8px 12px;
+padding:10px;
 margin:5px;
 border:none;
 border-radius:8px;
@@ -41,280 +45,466 @@ background:#00c6ff;
 color:white;
 font-weight:bold;
 }
-.stat{margin:8px 0;}
+
+.controls{
+position:fixed;
+bottom:20px;
+left:50%;
+transform:translateX(-50%);
+display:flex;
+gap:10px;
+}
+
 </style>
 </head>
+
 <body>
 
-<h1>Modern Tetris Ultimate - Pro</h1>
-<button onclick="startGame()">スタート</button>
-<button onclick="toggleFull()">全画面</button>
+<h1>MODERN TETRIS PRO</h1>
+
+<button onclick="startGame()">START</button>
 
 <div class="wrapper">
+
 <canvas id="game" width="300" height="600"></canvas>
 
 <div class="panel">
-<div class="stat">Score: <span id="score">0</span></div>
-<div class="stat">Level: <span id="level">1</span></div>
+
+<div>Score: <span id="score">0</span></div>
+<div>Level: <span id="level">1</span></div>
 
 <h3>Next</h3>
 <canvas id="next" width="120" height="120"></canvas>
 
 <h3>Hold</h3>
 <canvas id="hold" width="120" height="120"></canvas>
+
 </div>
+
+</div>
+
+<div class="controls">
+<button onclick="move(-1)">←</button>
+<button onclick="move(1)">→</button>
+<button onclick="rotate()">⟳</button>
+<button onclick="hardDrop()">DROP</button>
+<button onclick="holdPiece()">HOLD</button>
 </div>
 
 <script>
-// ===== 定数 =====
-const COLS=10, ROWS=20, SIZE=30;
+
+const COLS=10;
+const ROWS=20;
+const SIZE=30;
+
 const canvas=document.getElementById("game");
 const ctx=canvas.getContext("2d");
+
 const nextCtx=document.getElementById("next").getContext("2d");
 const holdCtx=document.getElementById("hold").getContext("2d");
 
-// ===== ゲーム状態 =====
-let board, current, nextQueue=[], hold=null, canHold=true;
-let dropCounter=0, dropInterval=1000, lastTime=0;
-let score=0, level=1, lines=0, b2b=false;
+let board;
+let current;
+let nextQueue=[];
+let hold=null;
+let canHold=true;
+
+let score=0;
+let level=1;
+let lines=0;
+
+let dropCounter=0;
+let dropInterval=1000;
+let lastTime=0;
 let running=false;
 
-// ===== 色 =====
-const COLORS={I:"#00ffff",O:"#ffff00",T:"#cc00ff",S:"#00ff00",Z:"#ff0000",J:"#0066ff",L:"#ff9900"};
+const COLORS={
+I:"#00ffff",
+O:"#ffff00",
+T:"#cc00ff",
+S:"#00ff00",
+Z:"#ff0000",
+J:"#0066ff",
+L:"#ff9900"
+};
 
-// ===== 7バッグ & ミノ定義 =====
 const PIECES={
-I:[[[0,0,0,0],[1,1,1,1],[0,0,0,0],[0,0,0,0]],
-   [[0,0,1,0],[0,0,1,0],[0,0,1,0],[0,0,1,0]]],
+I:[
+[[0,0,0,0],[1,1,1,1],[0,0,0,0],[0,0,0,0]],
+[[0,0,1,0],[0,0,1,0],[0,0,1,0],[0,0,1,0]]
+],
+
 O:[[[1,1],[1,1]]],
-T:[[[0,1,0],[1,1,1],[0,0,0]],
-   [[0,1,0],[0,1,1],[0,1,0]],
-   [[0,0,0],[1,1,1],[0,1,0]],
-   [[0,1,0],[1,1,0],[0,1,0]]],
-S:[[[0,1,1],[1,1,0],[0,0,0]],
-   [[0,1,0],[0,1,1],[0,0,1]],
-   [[0,0,0],[0,1,1],[1,1,0]],
-   [[1,0,0],[1,1,0],[0,1,0]]],
-Z:[[[1,1,0],[0,1,1],[0,0,0]],
-   [[0,0,1],[0,1,1],[0,1,0]],
-   [[0,0,0],[1,1,0],[0,1,1]],
-   [[0,1,0],[1,1,0],[1,0,0]]],
-J:[[[1,0,0],[1,1,1],[0,0,0]],
-   [[0,1,1],[0,1,0],[0,1,0]],
-   [[0,0,0],[1,1,1],[0,0,1]],
-   [[0,1,0],[0,1,0],[1,1,0]]],
-L:[[[0,0,1],[1,1,1],[0,0,0]],
-   [[0,1,0],[0,1,0],[0,1,1]],
-   [[0,0,0],[1,1,1],[1,0,0]],
-   [[1,1,0],[0,1,0],[0,1,0]]]
+
+T:[
+[[0,1,0],[1,1,1],[0,0,0]],
+[[0,1,0],[0,1,1],[0,1,0]],
+[[0,0,0],[1,1,1],[0,1,0]],
+[[0,1,0],[1,1,0],[0,1,0]]
+],
+
+S:[
+[[0,1,1],[1,1,0],[0,0,0]],
+[[0,1,0],[0,1,1],[0,0,1]]
+],
+
+Z:[
+[[1,1,0],[0,1,1],[0,0,0]],
+[[0,0,1],[0,1,1],[0,1,0]]
+],
+
+J:[
+[[1,0,0],[1,1,1],[0,0,0]],
+[[0,1,1],[0,1,0],[0,1,0]]
+],
+
+L:[
+[[0,0,1],[1,1,1],[0,0,0]],
+[[0,1,0],[0,1,0],[0,1,1]]
+]
+
 };
 
-// ===== SRSキック =====
-const JLSTZ_KICKS={
-"0>1":[[0,0],[-1,0],[-1,1],[0,-2],[-1,-2]],
-"1>0":[[0,0],[1,0],[1,-1],[0,2],[1,2]],
-"1>2":[[0,0],[1,0],[1,-1],[0,2],[1,2]],
-"2>1":[[0,0],[-1,0],[-1,1],[0,-2],[-1,-2]],
-"2>3":[[0,0],[1,0],[1,1],[0,-2],[1,-2]],
-"3>2":[[0,0],[-1,0],[-1,-1],[0,2],[-1,2]],
-"3>0":[[0,0],[-1,0],[-1,-1],[0,2],[-1,2]],
-"0>3":[[0,0],[1,0],[1,1],[0,-2],[1,-2]]
-};
-const I_KICKS={
-"0>1":[[0,0],[-2,0],[1,0],[-2,-1],[1,2]],
-"1>0":[[0,0],[2,0],[-1,0],[2,1],[-1,-2]],
-"1>2":[[0,0],[-1,0],[2,0],[-1,2],[2,-1]],
-"2>1":[[0,0],[1,0],[-2,0],[1,-2],[-2,1]],
-"2>3":[[0,0],[2,0],[-1,0],[2,1],[-1,-2]],
-"3>2":[[0,0],[-2,0],[1,0],[-2,-1],[1,2]],
-"3>0":[[0,0],[1,0],[-2,0],[1,-2],[-2,1]],
-"0>3":[[0,0],[-1,0],[2,0],[-1,2],[2,-1]]
-};
-
-// ===== 7バッグ生成 =====
 function newBag(){
+
 let bag=["I","O","T","S","Z","J","L"];
+
 for(let i=bag.length-1;i>0;i--){
+
 let j=Math.floor(Math.random()*(i+1));
+
 [bag[i],bag[j]]=[bag[j],bag[i]];
+
 }
+
 nextQueue.push(...bag);
+
 }
 
-// ===== ミノ生成 =====
 function spawn(){
+
 if(nextQueue.length===0) newBag();
-current={type:nextQueue.shift(),x:3,y:0,rotation:0};
+
+current={
+type:nextQueue.shift(),
+x:3,
+y:0,
+rotation:0
+};
+
 canHold=true;
+
 drawNext();
-if(collide()) running=false; // ゲームオーバー
+
 }
 
-// ===== ゲーム開始 =====
 function startGame(){
+
 board=Array.from({length:ROWS},()=>Array(COLS).fill(0));
+
 nextQueue=[];
 hold=null;
-score=0; level=1; lines=0; b2b=false;
-dropInterval=1000;
-document.getElementById("score").textContent=0;
-document.getElementById("level").textContent=1;
-newBag(); spawn();
+
+score=0;
+level=1;
+lines=0;
+
+newBag();
+
+spawn();
+
 running=true;
+
 requestAnimationFrame(update);
+
 }
 
-// ===== 衝突判定 =====
 function collide(dx=0,dy=0,rot=current.rotation){
+
 const shape=PIECES[current.type][rot];
+
 for(let y=0;y<shape.length;y++){
+
 for(let x=0;x<shape[y].length;x++){
+
 if(shape[y][x]){
+
 let nx=current.x+x+dx;
 let ny=current.y+y+dy;
+
 if(nx<0||nx>=COLS||ny>=ROWS||board[ny]?.[nx]) return true;
+
 }
+
 }
+
 }
+
 return false;
+
 }
 
-// ===== 移動/回転 =====
-function move(d){ if(!collide(d,0)) current.x+=d; }
+function move(d){
+
+if(!collide(d,0)) current.x+=d;
+
+}
+
 function rotate(){
-let old=current.rotation;
-let next=(old+1)%PIECES[current.type].length;
-let kicks=current.type==="I"?I_KICKS:JLSTZ_KICKS;
-let key=old+">"+next;
-for(let [dx,dy] of kicks[key]||[[0,0]]){
-if(!collide(dx,dy,next)){ current.x+=dx; current.y+=dy; current.rotation=next; break; }
-}
+
+let next=(current.rotation+1)%PIECES[current.type].length;
+
+if(!collide(0,0,next)) current.rotation=next;
+
 }
 
-// ===== ホールド =====
+function hardDrop(){
+
+while(!collide(0,1)){
+
+current.y++;
+
+score+=2;
+
+}
+
+softDrop();
+
+}
+
 function holdPiece(){
+
 if(!canHold) return;
-if(!hold){ hold=current.type; spawn(); }
-else{ [current.type,hold]=[hold,current.type]; current.x=3; current.y=0; current.rotation=0; }
+
+if(!hold){
+
+hold=current.type;
+
+spawn();
+
+}else{
+
+[current.type,hold]=[hold,current.type];
+
+current.x=3;
+
+current.y=0;
+
+current.rotation=0;
+
+}
+
 canHold=false;
+
 drawHold();
+
 }
 
-// ===== マージ =====
 function merge(){
+
 const shape=PIECES[current.type][current.rotation];
+
 shape.forEach((row,y)=>row.forEach((v,x)=>{
+
 if(v) board[current.y+y][current.x+x]=COLORS[current.type];
+
 }));
+
 }
 
-// ===== ライン消去 & Tスピン/B2B判定簡易 =====
 function clearLines(){
+
 let cleared=0;
+
 board=board.filter(row=>!row.every(cell=>cell));
-while(board.length<ROWS) board.unshift(Array(COLS).fill(0));
-cleared=ROWS-board.filter(r=>r.every(c=>!c)).length;
+
+while(board.length<ROWS){
+
+board.unshift(Array(COLS).fill(0));
+
+cleared++;
+
+}
+
 if(cleared){
+
 lines+=cleared;
-score+=cleared*100*level*(b2b?1.5:1);
-b2b=cleared===4||current.type==="T"?true:false;
+
+score+=cleared*100*level;
+
 level=Math.floor(lines/10)+1;
-dropInterval=1000-(level-1)*80;
-if(dropInterval<100) dropInterval=100;
-document.getElementById("score").textContent=Math.floor(score);
+
+dropInterval=1000-(level*70);
+
+document.getElementById("score").textContent=score;
+
 document.getElementById("level").textContent=level;
-}
+
 }
 
-// ===== ソフトドロップ =====
+}
+
 function softDrop(){
-if(!collide(0,1)) current.y++;
-else{
-merge(); clearLines(); spawn();
-}
+
+if(!collide(0,1)){
+
+current.y++;
+
+}else{
+
+merge();
+
+clearLines();
+
+spawn();
+
 }
 
-// ===== 描画 =====
+}
+
 function drawCell(x,y,color,alpha=1){
-ctx.globalAlpha=alpha; ctx.fillStyle=color;
+
+ctx.globalAlpha=alpha;
+
+ctx.fillStyle=color;
+
 ctx.fillRect(x*SIZE,y*SIZE,SIZE,SIZE);
-ctx.strokeStyle="#000"; ctx.strokeRect(x*SIZE,y*SIZE,SIZE,SIZE);
+
+ctx.strokeStyle="#000";
+
+ctx.strokeRect(x*SIZE,y*SIZE,SIZE,SIZE);
+
 ctx.globalAlpha=1;
+
 }
 
 function draw(){
+
 ctx.clearRect(0,0,canvas.width,canvas.height);
-board.forEach((row,y)=>row.forEach((v,x)=>{ if(v) drawCell(x,y,v); }));
-drawGhost(); drawPiece();
+
+board.forEach((row,y)=>row.forEach((v,x)=>{
+
+if(v) drawCell(x,y,v);
+
+}));
+
+drawGhost();
+
+drawPiece();
+
 }
 
 function drawPiece(){
+
 const shape=PIECES[current.type][current.rotation];
-shape.forEach((row,y)=>row.forEach((v,x)=>{ if(v) drawCell(current.x+x,current.y+y,COLORS[current.type]); }));
+
+shape.forEach((row,y)=>row.forEach((v,x)=>{
+
+if(v) drawCell(current.x+x,current.y+y,COLORS[current.type]);
+
+}));
+
 }
 
 function drawGhost(){
+
 let ghostY=current.y;
+
 while(!collide(0,ghostY-current.y+1)) ghostY++;
+
 const shape=PIECES[current.type][current.rotation];
-shape.forEach((row,y)=>row.forEach((v,x)=>{ if(v) drawCell(current.x+x,ghostY+y,COLORS[current.type],0.3); }));
+
+shape.forEach((row,y)=>row.forEach((v,x)=>{
+
+if(v) drawCell(current.x+x,ghostY+y,COLORS[current.type],0.3);
+
+}));
+
 }
 
 function drawNext(){
+
 nextCtx.clearRect(0,0,120,120);
-if(nextQueue.length){
+
 let type=nextQueue[0];
-PIECES[type][0].forEach((row,y)=>row.forEach((v,x)=>{ if(v){ nextCtx.fillStyle=COLORS[type]; nextCtx.fillRect((x+1)*25,(y+1)*25,25,25); }}));
+
+if(!type) return;
+
+PIECES[type][0].forEach((row,y)=>row.forEach((v,x)=>{
+
+if(v){
+
+nextCtx.fillStyle=COLORS[type];
+
+nextCtx.fillRect((x+1)*25,(y+1)*25,25,25);
+
 }
+
+}));
+
 }
 
 function drawHold(){
+
 holdCtx.clearRect(0,0,120,120);
-if(hold){ PIECES[hold][0].forEach((row,y)=>row.forEach((v,x)=>{ if(v){ holdCtx.fillStyle=COLORS[hold]; holdCtx.fillRect((x+1)*25,(y+1)*25,25,25); }})); }
+
+if(!hold) return;
+
+PIECES[hold][0].forEach((row,y)=>row.forEach((v,x)=>{
+
+if(v){
+
+holdCtx.fillStyle=COLORS[hold];
+
+holdCtx.fillRect((x+1)*25,(y+1)*25,25,25);
+
 }
 
-// ===== ゲームループ =====
+}));
+
+}
+
 function update(time=0){
+
 if(!running) return;
+
 let delta=time-lastTime;
+
 lastTime=time;
+
 dropCounter+=delta;
-if(dropCounter>dropInterval){ softDrop(); dropCounter=0; }
+
+if(dropCounter>dropInterval){
+
+softDrop();
+
+dropCounter=0;
+
+}
+
 draw();
+
 requestAnimationFrame(update);
+
 }
 
-// ===== 全画面 =====
-function toggleFull(){
-if(!document.fullscreenElement){ document.documentElement.requestFullscreen(); }
-else{ document.exitFullscreen(); }
-}
-
-// ===== キーボード操作 =====
 document.addEventListener("keydown",e=>{
-if(!running) return;
+
 if(e.key==="ArrowLeft") move(-1);
+
 if(e.key==="ArrowRight") move(1);
+
 if(e.key==="ArrowDown") softDrop();
+
 if(e.key==="ArrowUp") rotate();
-if(e.key==="c"||e.key==="C") holdPiece();
+
+if(e.key===" ") hardDrop();
+
+if(e.key==="c") holdPiece();
+
 });
 
-// ===== モバイルスワイプ / タップ =====
-let touchStartX=0, touchStartY=0, touchStartTime=0;
-canvas.addEventListener("touchstart",e=>{
-let t=e.touches[0]; touchStartX=t.clientX; touchStartY=t.clientY; touchStartTime=Date.now();
-});
-canvas.addEventListener("touchend",e=>{
-let t=e.changedTouches[0];
-let dx=t.clientX-touchStartX; let dy=t.clientY-touchStartY;
-let absX=Math.abs(dx); let absY=Math.abs(dy);
-let duration=Date.now()-touchStartTime;
-
-if(absX<10 && absY<10 && duration<200){ holdPiece(); return; }
-if(absX>absY){ if(dx>30) move(1); if(dx<-30) move(-1); }
-else{ if(dy>30) softDrop(); if(dy<-30) rotate(); }
-});
 </script>
+
 </body>
 </html>
