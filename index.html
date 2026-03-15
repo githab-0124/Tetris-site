@@ -4,25 +4,31 @@
 <head>
 <meta charset="UTF-8">
 <meta name="viewport" content="width=device-width,initial-scale=1">
-<title>God Tetris</title>
+<title>TetrisUltimate-PRO</title>
 
 <style>
+
 body{
 margin:0;
-background:linear-gradient(135deg,#0f2027,#203a43,#2c5364);
+background:#0b0f1a;
 color:white;
 font-family:Arial;
 text-align:center;
 }
 
-h1{margin:10px}
+h1{
+margin:10px;
+font-size:32px;
+color:#00eaff;
+}
 
 button{
 padding:10px 16px;
 border:none;
-border-radius:10px;
+border-radius:8px;
 background:#00eaff;
 font-weight:bold;
+cursor:pointer;
 }
 
 .wrapper{
@@ -39,9 +45,10 @@ box-shadow:0 0 15px cyan;
 }
 
 .panel{
-background:rgba(255,255,255,0.1);
+background:#1c2233;
 padding:10px;
 border-radius:10px;
+min-width:140px;
 }
 
 .controls{
@@ -58,11 +65,11 @@ gap:10px;
 
 <body>
 
-<h1>GOD TETRIS</h1>
+<h1>TetrisUltimate-PRO</h1>
 
 <div id="menu">
 <button onclick="startGame()">PLAY</button>
-<button onclick="toggleAI()">AI DEMO</button>
+<button onclick="startAI()">AI DEMO</button>
 </div>
 
 <div id="ui" style="display:none">
@@ -123,12 +130,12 @@ let level=1
 let lines=0
 let combo=0
 
-let ai=false
-
 let dropInterval=1000
 let dropCounter=0
 let lastTime=0
+
 let running=false
+let ai=false
 
 let highScore=localStorage.getItem("tetrisHigh")||0
 document.getElementById("high").textContent=highScore
@@ -170,11 +177,13 @@ function spawn(){
 
 if(queue.length<5) newBag()
 
+let type=queue.shift()
+
 current={
-type:queue.shift(),
+type:type,
 x:3,
 y:0,
-shape:JSON.parse(JSON.stringify(pieces[queue[0]]))
+shape:JSON.parse(JSON.stringify(pieces[type]))
 }
 
 canHold=true
@@ -183,6 +192,16 @@ drawNext()
 }
 
 function startGame(){
+ai=false
+init()
+}
+
+function startAI(){
+ai=true
+init()
+}
+
+function init(){
 
 document.getElementById("menu").style.display="none"
 document.getElementById("ui").style.display="block"
@@ -426,13 +445,6 @@ function aiMove(){
 if(Math.random()<0.3) move(Math.random()<0.5?-1:1)
 if(Math.random()<0.2) rotate()
 if(Math.random()<0.05) hardDrop()
-
-}
-
-function toggleAI(){
-
-ai=!ai
-startGame()
 
 }
 
