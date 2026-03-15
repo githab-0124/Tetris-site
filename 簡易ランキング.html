@@ -1,0 +1,15 @@
+let ranking=JSON.parse(localStorage.getItem("ranking"))||[];
+
+let list=document.getElementById("ranking");
+
+ranking.sort((a,b)=>b.score-a.score);
+
+ranking.slice(0,10).forEach(r=>{
+
+let li=document.createElement("li");
+
+li.textContent=r.name+" : "+r.score;
+
+list.appendChild(li);
+
+});
